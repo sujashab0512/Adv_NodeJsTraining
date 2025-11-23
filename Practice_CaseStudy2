@@ -1,0 +1,125 @@
+
+// --------------------
+// CUSTOM ERROR CLASS
+// --------------------
+class ValidationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}
+
+// --------------------
+// FOOD ITEM CLASS
+// --------------------
+class FoodItem {
+  constructor(name, price, category = "Regular") {
+    if (!name || price === undefined) {
+      throw new ValidationError("Food item must have a name and price.");
+    }
+    price = Number(price); // Type conversion
+    if (isNaN(price) || price <= 0) {
+      throw new ValidationError("Price must be a valid positive number.");
+    }
+    this.name = name;
+    this.price = price;
+    this.category = category;
+  }
+
+  getPrice() {
+    return this.price;
+  }
+}
+
+// --------------------
+// PREMIUM FOOD ITEM (INHERITANCE)
+// --------------------
+class PremiumFoodItem extends FoodItem {
+  constructor(name, price, category = "Premium", extraFee = 0) {
+    super(name, price, category);
+    extraFee = Number(extraFee);
+    if (isNaN(extraFee) || extraFee < 0) {
+      throw new ValidationError("Extra fee must be a valid non-negative number.");
+    }
+    this.extraFee = extraFee;
+  }
+
+  getPrice() {
+    return this.price + this.extraFee; // Override method
+  }
+}
+
+// --------------------
+// CART CLASS
+// --------------------
+class Cart {
+  static company = "Cognizant"; // Static property
+
+  constructor() {
+    this.items = [];
+  }
+
+  addItems(...newItems) {
+    newItems.forEach(item => {
+      if (!(item instanceof FoodItem)) {
+        throw new ValidationError("Invalid item added to cart.");
+      }
+      this.items.push(item);
+    });
+  }
+
+  calculateTotal() {
+    return this.items.reduce((total, item) => total + item.getPrice(), 0);
+  }
+
+  getItemNames() {
+    return this.items.map(item => item.name);
+  }
+}
+
+// ----------------------------
+// CLOSURE: DISCOUNT ENGINE
+// ----------------------------
+function discountEngine(discountPercent) {
+  return function (price) {
+    return price - (price * discountPercent) / 100;
+  };
+}
+
+// ----------------------------
+// BILLING LOGIC WITH TIMER
+// ----------------------------
+function generateBill(cart) {
+  const totalPrice = cart.calculateTotal();
+  const applyDiscount = discountEngine(15); // 15% discount
+  const discountedPrice = applyDiscount(totalPrice);
+
+  setTimeout(() => {
+    console.log("----- FINAL BILL -----");
+    console.log("Company:", Cart.company);
+    console.log("Items:", cart.getItemNames().join(", "));
+    console.log("Original Total:", totalPrice);
+    console.log("Discounted Total:", discountedPrice);
+    console.log("----------------------");
+  }, 2000); // Simulate preparation time
+}
+
+// ----------------------------
+// EXECUTION FLOW
+// ----------------------------
+try {
+  const burger = new FoodItem("Burger", "150", "Fast Food");
+  const pizza = new PremiumFoodItem("Pizza", "300", "Premium", 50);
+  const fries = new FoodItem("Fries", 100);
+
+  const cart = new Cart();
+  cart.addItems(burger, pizza, fries);
+
+  generateBill(cart);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.log("Validation Error:", error.message);
+  } else {
+    console.log("Unexpected Error:", error);
+  }
+}
