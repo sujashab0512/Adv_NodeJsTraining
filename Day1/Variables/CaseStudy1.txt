@@ -1,0 +1,39 @@
+Boolean Class in a Checkout System
+Scenario1: 
+A shopping website uses Boolean logic to:
+Check if the cart has items
+Check if the user is logged in
+Validate payment
+Use Boolean objects to simulate internal system flags
+
+Scenario2: Billing System Discount Calculation
+You are building an online shopping cart.
+Each item has a price and quantity.
+The system should calculate the total price.
+If the total price is more than 500, a 10% discount applies.
+The final amount should be rounded to 2 decimal places.
+You also need to validate that the quantity entered by the user is an integer.
+Task
+Create variables price and quantity.
+Validate that quantity is an integer using a Number method.
+Calculate the total price.
+Apply 10% discount if total > 500.
+Round the final amount to 2 decimal places.
+Print the final amount.
+
+Scenario3: User Registration Form Validation
+You are building a registration form for a website.
+Requirements:
+User enters their full name and email address.
+The full name should have no leading or trailing spaces.
+The first letter of the name should be capitalized.
+The email must contain the "@" character.
+Extract the domain name from the email (everything after "@").
+Display a welcome message: "Hello [Name], your email domain is [domain]".
+Task
+Create variables fullName and email.
+Remove extra spaces from the name.
+Capitalize the first letter of the name.
+Validate that the email contains "@".
+Extract the domain from the email.
+Print a welcome message with the formatted name and domain.

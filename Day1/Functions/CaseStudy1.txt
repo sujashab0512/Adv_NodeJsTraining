@@ -1,0 +1,21 @@
+Scenario:
+You are building a custom greeting system for a multinational company. Employees 
+belong to different departments, and the company wants to send personalized greetings 
+based on department and time of day.
+You need to create a function that stores the department name and the company name, 
+and returns another function (closure) that can generate greetings for employees using 
+their first name, last name, and time of day.
+
+Requirements:
+Create a function greetingGenerator(department, company) that returns another function.
+The returned function should take three arguments: firstName, lastName, and timeOfDay 
+(morning, afternoon, evening).
+The returned function should print a personalized greeting in the format:
+Good <timeOfDay>, <firstName> <lastName>! Welcome to the <department> department 
+at <company>.
+Demonstrate using this closure for at least 3 employees in the same department.
+
+Sample output:
+Good morning, Alice Johnson! Welcome to the Marketing department at TechCorp.
+Good afternoon, Bob Smith! Welcome to the Marketing department at TechCorp.
+Good evening, Charlie Brown! Welcome to the Marketing department at TechCorp.
