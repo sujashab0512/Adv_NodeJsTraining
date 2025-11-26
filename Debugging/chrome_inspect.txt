@@ -1,0 +1,3 @@
+chrome://inspect/#devices
+function F8 for going step by step
+ 
