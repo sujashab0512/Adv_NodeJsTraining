@@ -1,3 +1,73 @@
+unit -> eventModel.test.js
+
+
+require('dotenv').config();
+const mongoose = require('mongoose');
+const Event = require('../../models/Event');
+
+describe('Event Model Validation', () => {
+  beforeAll(async () => {
+    await mongoose.connect(process.env.TEST_MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+  });
+
+  afterAll(async () => {
+    await mongoose.connection.close();
+  });
+
+  it('should require title, date, and location', () => {
+    const event = new Event({});
+    const validationError = event.validateSync();
+
+    expect(validationError.errors['title']).toBeDefined();
+    expect(validationError.errors['date']).toBeDefined();
+    expect(validationError.errors['location']).toBeDefined();
+  });
+});
+---------------------------------------------------------------------------------------------------------------
+
+
+require('dotenv').config();
+const request = require('supertest');
+const mongoose = require('mongoose');
+const app = require('../../app'); // Your Express app
+
+describe('POST /api/v1/attendees', () => {
+  beforeAll(async () => {
+    await mongoose.connect(process.env.TEST_MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+  });
+
+  afterAll(async () => {
+    await mongoose.connection.close();
+  });
+
+  it('should register attendee successfully', async () => {
+    // Sample attendee data
+    const attendeeData = {
+      userId: '645f7b9c7a1c1234a0b67890', // Replace with a valid user ID from your DB
+      eventId: '645f7a4c1a5f8e23a1c89012', // Replace with a valid event ID from your DB
+    };
+
+    const res = await request(app)
+      .post('/api/v1/attendees')
+      .set('Authorization', 'Bearer <Attendee_Access_Token>') // Replace with a valid JWT
+      .send(attendeeData);
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('_id');
+    expect(res.body.data.user).toBe(attendeeData.userId);
+    expect(res.body.data.event).toBe(attendeeData.eventId);
+  });
+});
+
+
+
 eventController.js
 
 
@@ -550,6 +620,7 @@ connectDB()
     app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
   })
   .catch(err => logger.error('DB Connection Failed', { error: err.message }));
+
 
 
 
