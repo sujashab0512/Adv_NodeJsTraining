@@ -1,0 +1,346 @@
+
+db.js
+
+const mongoose = require('mongoose');
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log('MongoDB connected');
+  } catch (error) {
+    console.error('MongoDB connection failed:', error.message);
+    process.exit(1);
+  }
+};
+
+module.exports = connectDB;
+
+-------------------------------------------------------------------------------------------
+looger.js
+
+const { createLogger, format, transports } = require('winston');
+
+const logger = createLogger({
+  level: 'info',
+  format: format.combine(
+    format.timestamp(),
+    format.json()
+  ),
+  transports: [
+    new transports.Console(),
+    new transports.File({ filename: 'logs/app.log' })
+  ]
+});
+
+module.exports = logger;
+
+-------------------------------------------------------------------------------------------
+attendeeController.js
+
+
+const Attendee = require('../models/Attendee');
+const logger = require('../config/logger');
+
+exports.registerAttendee = async (req, res, next) => {
+  try {
+    const attendee = await Attendee.create(req.body);
+    logger.info(`Attendee registered for event: ${attendee.event}`);
+    res.status(201).json({ success: true, data: attendee });
+  } catch (error) {
+    logger.error('Attendee registration failed', { error: error.message });
+    next(error);
+  }
+};
+
+-------------------------------------------------------------------------------------------
+
+authController.js
+
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+const bcrypt = require('bcrypt');
+const logger = require('../config/logger');
+
+exports.register = async (req, res, next) => {
+  try {
+    const user = await User.create(req.body);
+    logger.info(`New user registered: ${user.email}`);
+    res.status(201).json({ success: true, data: user });
+  } catch (error) {
+    logger.error('Registration failed', { error: error.message });
+    next(error);
+  }
+};
+
+exports.login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      logger.warn(`Login failed for email: ${email}`);
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    logger.info(`User logged in: ${email}`);
+    res.json({ success: true, token });
+  } catch (error) {
+    logger.error('Login error', { error: error.message });
+    next(error);
+  }
+};
+
+---------------------------------------------------------------------------------------------------
+eventController.js
+
+
+const Event = require('../models/Event');
+const fs = require('fs');
+const path = require('path');
+const logger = require('../config/logger');
+
+exports.createEvent = async (req, res, next) => {
+  try {
+    const event = await Event.create({ ...req.body, organizer: req.user.id });
+    logger.info(`Event created: ${event.title}`);
+    res.status(201).json({ success: true, data: event });
+  } catch (error) {
+    logger.error('Event creation failed', { error: error.message });
+    next(error);
+  }
+};
+
+exports.uploadImage = async (req, res, next) => {
+  try {
+    const filePath = path.join('uploads', req.file.originalname);
+    const fileStream = fs.createWriteStream(filePath);
+    fileStream.write(req.file.buffer);
+    fileStream.end();
+    logger.info(`Image uploaded for event: ${req.params.id}`);
+    res.json({ success: true, message: 'Image uploaded', file: req.file.originalname });
+  } catch (error) {
+    logger.error('Image upload failed', { error: error.message });
+    next(error);
+  }
+};
+------------------------------------------------------------------------------------
+
+authMiddleware.js
+const jwt = require('jsonwebtoken');
+
+module.exports = (roles = []) => {
+  return (req, res, next) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ success: false, message: 'No token provided' });
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (roles.length && !roles.includes(decoded.role)) {
+        return res.status(403).json({ success: false, message: 'Forbidden' });
+      }
+      req.user = decoded;
+      next();
+    } catch (error) {
+      res.status(401).json({ success: false, message: 'Invalid token' });
+    }
+  };
+};
+-------------------------------------------------------------------
+
+eventHandler.js
+
+
+const logger = require('../config/logger');
+
+module.exports = (err, req, res, next) => {
+  logger.error(err.message, { stack: err.stack });
+  res.status(500).json({ success: false, message: err.message });
+};
+
+-------------------------------------------------------------------
+Attendee.ja
+
+const mongoose = require('mongoose');
+
+const attendeeSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  event: { type: mongoose.Schema.Types.ObjectId, ref: 'Event', required: true },
+  registeredAt: { type: Date, default: Date.now }
+});
+
+module.exports = mongoose.model('Attendee', attendeeSchema);
+
+-------------------------------------------------------------------------
+Event.js
+
+const mongoose = require('mongoose');
+
+const eventSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: String,
+  date: { type: Date, required: true },
+  location: { type: String, required: true },
+  image: String,
+  organizer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+}, { timestamps: true });
+
+module.exports = mongoose.model('Event', eventSchema);
+
+
+-----------------------------------------------------------------
+
+User.js
+
+const mongoose = require('mongoose');
+
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  role: { type: String, enum: ['Admin', 'Organizer', 'Attendee'], default: 'Attendee' }
+}, { timestamps: true });
+
+module.exports = mongoose.model('User', userSchema);
+
+---------------------------------------------------------------------
+
+attendeeRoutes.js
+
+
+const express = require('express');
+const { registerAttendee } = require('../controllers/attendeeController');
+const authMiddleware = require('../middlewares/authMiddleware');
+const router = express.Router();
+
+router.post('/', authMiddleware(['Attendee']), registerAttendee);
+
+module.exports = router;
+
+-----------------------------------------------------------------------------
+authRoutes.js
+
+
+
+
+const express = require('express');
+const { register, login } = require('../controllers/authController');
+const router = express.Router();
+
+router.post('/register', register);
+router.post('/login', login);
+
+module.exports = router;
+
+
+-------------------------------------------------------------------------------
+
+eventRoutes.js
+
+
+
+
+const express = require('express');
+const { createEvent, uploadImage } = require('../controllers/eventController');
+const authMiddleware = require('../middlewares/authMiddleware');
+const router = express.Router();
+
+router.post('/', authMiddleware(['Organizer']), createEvent);
+router.post('/:id/image', authMiddleware(['Organizer']), upload.single('image'), uploadImage);
+
+module.exports = router;
+
+
+------------------------------------------------------------------------------------
+intrgration/sample.test.js
+
+
+const request = require('supertest');
+const app = require('../../app');
+
+describe('Integration Test: Events API', () => {
+  it('GET /api/v1/events should return 404 (no route for GET)', async () => {
+    const res = await request(app).get('/api/v1/events');
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+------------------------------------------------------------------------------------
+
+emailService.js
+
+
+// Placeholder for email sending logic
+exports.sendEmail = async (to, subject, body) => {
+  // Implement email sending using nodemailer or any service
+  console.log(`Email sent to ${to}: ${subject}`);
+};
+-------------------------------------------------------------------------------------
+fileHandler.js
+
+const fs = require('fs');
+const path = require('path');
+
+exports.saveFileStream = (fileBuffer, fileName) => {
+  const filePath = path.join('uploads', fileName);
+  const stream = fs.createWriteStream(filePath);
+  stream.write(fileBuffer);
+  stream.end();
+  return filePath;
+};
+---------------------------------------------------------------------------------------
+app.js
+
+
+const express = require('express');
+const cors = require('cors');
+const dotenv = require('dotenv');
+const errorHandler = require('./src/middlewares/errorHandler');
+const logger = require('./src/config/logger');
+
+dotenv.config();
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+// Routes
+const authRoutes = require('./src/routes/authRoutes');
+const eventRoutes = require('./src/routes/eventRoutes');
+const attendeeRoutes = require('./src/routes/attendeeRoutes');
+
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/events', eventRoutes);
+app.use('/api/v1/attendees', attendeeRoutes);
+
+// Error Handler
+app.use(errorHandler);
+
+// Log app start
+logger.info('App initialized');
+
+module.exports = app;
+--------------------------------------------------------------------------------------
+
+server.js
+
+
+const app = require('./app');
+const connectDB = require('./src/config/db');
+const logger = require('./src/config/logger');
+
+const PORT = process.env.PORT || 5000;
+
+connectDB()
+  .then(() => {
+    app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
+  })
+  .catch(err => logger.error('DB Connection Failed', { error: err.message }));
+
+
+
+
+
+
+
+
+
+
+
