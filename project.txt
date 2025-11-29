@@ -1,3 +1,104 @@
+eventController.js
+
+
+const Event = require('../models/Event');
+const logger = require('../config/logger');
+
+exports.createEvent = async (req, res) => {
+  try {
+    const { title, description, date, location } = req.body;
+
+    // Allow Organizer and Attendee to create events
+    if (!['Organizer', 'Attendee'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Forbidden: Only Organizer or Attendee can create events' });
+    }
+
+    const event = await Event.create({
+      title,
+      description,
+      date,
+      location,
+      organizer: req.user.id
+    });
+
+    logger.info(`Event created by ${req.user.role}: ${req.user.id}`);
+    res.status(201).json({
+      success: true,
+      message: 'Event created successfully',
+      data: event
+    });
+  } catch (error) {
+    logger.error(`Event creation failed: ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+------------------------------------------------------------------------------------------------------------------
+attendeeController.js
+
+
+const Attendee = require('../models/Attendee');
+const Event = require('../models/Event');
+const User = require('../models/User');
+const logger = require('../config/logger');
+
+exports.registerAttendee = async (req, res) => {
+  try {
+    const { userId, eventId } = req.body;
+
+    const user = await User.findById(userId);
+    const event = await Event.findById(eventId);
+
+    if (!user) {
+      logger.warn(`Attendee registration failed: User not found (${userId})`);
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (!event) {
+      logger.warn(`Attendee registration failed: Event not found (${eventId})`);
+      return res.status(404).json({ success: false, message: 'Event not found' });
+    }
+
+    const attendee = await Attendee.create({ user: userId, event: eventId });
+    logger.info(`Attendee registered: User ${userId} for Event ${eventId}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Registration successful',
+      data: attendee
+    });
+  } catch (error) {
+    logger.error(`Attendee registration error: ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+-----------------------------------------------------------------------------------------
+eventRoutes.js
+
+const express = require('express');
+const { createEvent } = require('../controllers/eventController');
+const authMiddleware = require('../middlewares/authMiddleware');
+
+const router = express.Router();
+
+// Allow Organizer and Attendee to create events
+router.post('/', authMiddleware(['Organizer', 'Attendee']), createEvent);
+
+module.exports = router;
+-----------------------------------------------------------------------------------------
+attendeeRoutes.js
+
+const express = require('express');
+const { registerAttendee } = require('../controllers/attendeeController');
+const authMiddleware = require('../middlewares/authMiddleware');
+
+const router = express.Router();
+
+// Allow Attendee to register for events
+router.post('/', authMiddleware(['Attendee']), registerAttendee);
+
+module.exports = router;
+------------------------------------------------------------
+
+
 authController
 
 
@@ -449,6 +550,7 @@ connectDB()
     app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
   })
   .catch(err => logger.error('DB Connection Failed', { error: err.message }));
+
 
 
 
