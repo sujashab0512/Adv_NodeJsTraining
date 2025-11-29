@@ -182,19 +182,48 @@ exports.createEvent = async (req, res, next) => {
   }
 };
 
-exports.uploadImage = async (req, res, next) => {
+
+const fs = require('fs');
+const path = require('path');
+const Event = require('../models/Event');
+
+exports.uploadImage = async (req, res) => {
   try {
-    const filePath = path.join('uploads', req.file.originalname);
-    const fileStream = fs.createWriteStream(filePath);
-    fileStream.write(req.file.buffer);
-    fileStream.end();
-    logger.info(`Image uploaded for event: ${req.params.id}`);
-    res.json({ success: true, message: 'Image uploaded', file: req.file.originalname });
+    const event = await Event.findById(req.params.id);
+    if (!event) {
+      return res.status(404).json({ success: false, message: 'Event not found' });
+    }
+
+    // Save raw binary data from request body
+    const fileName = `event_${Date.now()}.jpg`;
+    const filePath = path.join(__dirname, '../../uploads', fileName);
+
+    const writeStream = fs.createWriteStream(filePath);
+    req.pipe(writeStream);
+
+    writeStream.on('finish', async () => {
+      event.image = fileName;
+      await event.save();
+
+      res.json({
+        success: true,
+        message: 'Event image uploaded successfully',
+        data: {
+          fileName,
+          filePath: `/uploads/${fileName}`,
+          uploadedAt: new Date()
+        }
+      });
+    });
+
+    writeStream.on('error', (err) => {
+      res.status(500).json({ success: false, message: err.message });
+    });
   } catch (error) {
-    logger.error('Image upload failed', { error: error.message });
-    next(error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
+
 ------------------------------------------------------------------------------------
 
 authMiddleware.js
@@ -406,6 +435,7 @@ connectDB()
     app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
   })
   .catch(err => logger.error('DB Connection Failed', { error: err.message }));
+
 
 
 
