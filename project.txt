@@ -1,3 +1,6 @@
+npm install --save-dev supertest jest
+
+
 unit -> eventModel.test.js
 
 
@@ -620,6 +623,7 @@ connectDB()
     app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
   })
   .catch(err => logger.error('DB Connection Failed', { error: err.message }));
+
 
 
 
